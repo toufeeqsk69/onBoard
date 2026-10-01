@@ -1,4 +1,3 @@
-````markdown
 # OnBoard
 
 OnBoard is an AI-powered Applicant Tracking and Resume Screening platform that evaluates candidate resumes against job requirements using LLM-based resume parsing, semantic skill matching, and explainable candidate scoring.
@@ -27,59 +26,6 @@ The system extracts structured information including:
 Resume text is extracted using `pdf-parse`. If the PDF contains little or no extractable text, the raw PDF can be processed using Google Gemini.
 
 ---
-
-### Job Configuration
-
-Recruiters can create job-specific configurations containing:
-
-- Minimum experience
-- Target degree
-- Target field of study
-- Required skills
-- Skill importance
-
-Skills can be categorized into:
-
-- Must-have
-- Important
-- Nice-to-have
-
-This allows every candidate to be evaluated according to the requirements of the specific job.
-
----
-
-### Semantic Skill Matching
-
-OnBoard uses embeddings instead of relying only on exact string matching.
-
-Both job requirements and candidate skills are converted into embeddings using Gemini.
-
-Cosine similarity is then used to determine how closely two skills are related.
-
-For example:
-
-```text
-Job Requirement:
-Kubernetes
-
-Candidate Resume:
-K8s
-Container Orchestration
-````
-
-The system can identify these as semantically related skills instead of treating them as completely different strings.
-
----
-
-### Weighted Candidate Scoring
-
-Each candidate receives three major component scores:
-
-```text
-Experience
-Skills
-Education
-```
 
 The default weighting is:
 
@@ -403,68 +349,25 @@ PDF Text Extraction
 
 ```text
 OnBoard/
-│
 ├── client/
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── Navbar.jsx
-│   │   │   ├── CandidateCard.jsx
-│   │   │   ├── ResumeUploader.jsx
-│   │   │   └── Leaderboard.jsx
-│   │   │
 │   │   ├── context/
-│   │   │   └── AuthContext.jsx
-│   │   │
 │   │   ├── pages/
-│   │   │   ├── Login.jsx
-│   │   │   ├── Dashboard.jsx
-│   │   │   ├── JobSetup.jsx
-│   │   │   └── CandidateDetails.jsx
-│   │   │
 │   │   └── services/
-│   │       └── api.js
-│   │
 │   └── package.json
-│
 ├── server/
 │   ├── config/
-│   │   └── db.js
-│   │
 │   ├── controllers/
-│   │   ├── authController.js
-│   │   ├── candidateController.js
-│   │   ├── jobConfigController.js
-│   │   └── userController.js
-│   │
 │   ├── middleware/
-│   │   └── authMiddleware.js
-│   │
 │   ├── models/
-│   │   ├── User.js
-│   │   ├── Candidate.js
-│   │   └── JobConfig.js
-│   │
 │   ├── routes/
-│   │   ├── authRoutes.js
-│   │   ├── candidateRoutes.js
-│   │   ├── jobConfigRoutes.js
-│   │   └── userRoutes.js
-│   │
 │   ├── services/
-│   │   ├── geminiService.js
-│   │   └── mlService.js
-│   │
 │   ├── utils/
-│   │   ├── pdfParser.js
-│   │   └── encryption.js
-│   │
-│   ├── server.js
+│   ├── app.js
 │   └── package.json
-│
 ├── demo_resume/
-│
 ├── screenshots/
-│
 └── README.md
 ```
 
@@ -558,10 +461,10 @@ GEMINI_API_KEY=your_gemini_api_key
 
 The `ENCRYPTION_KEY` must contain exactly 32 characters because it is used as the AES-256 encryption key.
 
-Start the backend:
+Start the backend from the `server` directory:
 
 ```bash
-npm start
+node app.js
 ```
 
 ---
@@ -707,5 +610,3 @@ Screening
 # License
 
 This project is developed for educational and portfolio purposes.
-
-```
