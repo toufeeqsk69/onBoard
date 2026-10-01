@@ -1,120 +1,576 @@
-# RecruitAI
+Yes — here is the **complete `README.md` for your project `OnBoard`**, based only on the functionality in the uploaded RecruitAI README, with the project renamed and wording adapted. 
 
-RecruitAI is a self-hosted Applicant Tracking System (ATS) that scores and ranks resumes against a job profile instead of just keyword-matching them. It's a MERN app (MongoDB, Express, React, Node) that uses Google Gemini for resume parsing and skill embeddings, and a scoring engine that runs entirely on the Node server - no separate ML microservice.
+````markdown
+# OnBoard
 
-The goal was to build something closer to how a hiring team actually thinks about a resume: which skills matter most for this specific role, whether a candidate's experience backs up their claimed skills, and how confident the system is when it says "this person is a good match."
+OnBoard is an AI-powered Applicant Tracking and Resume Screening platform that evaluates candidate resumes against job requirements using LLM-based resume parsing, semantic skill matching, and explainable candidate scoring.
 
-## Screenshots
+Instead of relying only on keyword matching, OnBoard analyzes candidate skills, experience, education, and supporting resume evidence to generate a job-specific candidate score.
 
-**Login**
+---
 
-![Login page](./screenshots/Login_page.png)
+## Features
 
-**Dashboard** - candidates for the active job, sorted by score, with pipeline stage controls (New, Screening, Interview, Offer, Rejected)
+### AI-Powered Resume Parsing
 
-![Dashboard](./screenshots/Dashboard.png)
+OnBoard allows recruiters to upload candidate resumes in PDF format.
 
-**Job configuration** - set minimum experience, target degree/field, and per-skill importance (Must-have / Important / Nice-to-have), or generate all of this automatically from a set of "gold standard" resumes
+The system extracts structured information including:
 
-![Job configuration](./screenshots/Job_config.png)
+- Candidate name
+- Email
+- Skills
+- Years of experience
+- Degree
+- Field of study
+- Resume summary
+- Evidence supporting detected skills
 
-**Candidate detail** - score breakdown, radar chart against the benchmark, and an evidence table showing the exact line from the resume that backs up each matched skill
+Resume text is extracted using `pdf-parse`. If the PDF contains little or no extractable text, the raw PDF can be processed using Google Gemini.
 
-![Candidate detail](./screenshots/Candidate_data.png)
+---
 
-**Weight tuning** - how HR ratings feed back into the skill weights over time
+### Job Configuration
 
-![Weight tuning](./screenshots/Model_tune.png)
+Recruiters can create job-specific configurations containing:
 
-## What it actually does
+- Minimum experience
+- Target degree
+- Target field of study
+- Required skills
+- Skill importance
 
-**Resume parsing.** PDFs are uploaded and text is pulled out with `pdf-parse`. If a resume comes back with almost no extractable text (a scanned resume, for example), the app falls back to sending the raw PDF bytes to Gemini directly instead. Gemini returns a fixed JSON structure: name, email, normalized skill tags (categorized as Language / Framework / Tool / Practice / Soft-Skill), years of experience, degree, field of study, a short summary, and a quote from the resume for each skill it detected, so a claimed skill isn't taken at face value.
+Skills can be categorized into:
 
-**Gold-standard benchmarking.** Instead of manually guessing at ideal weights, you can upload up to 12 resumes of people who already succeeded in the role. The server parses all of them, averages their years of experience, finds the most common degree and field, and tallies which skills show up across the group. Any skill appearing in at least a quarter of the resumes gets added to the job's skill list automatically, with its importance tier set by how common it was (75%+ of resumes = Must-have).
+- Must-have
+- Important
+- Nice-to-have
 
-**Semantic skill matching.** Skills aren't matched by exact string comparison. Both the job's required skills and each candidate's skills get embedded with Gemini's `text-embedding-004`, and matches are decided by cosine similarity with a 0.82 threshold. That means a job requiring "kubernetes" will still credit a resume that only says "k8s" or "container orchestration," rather than missing it on a technicality.
+This allows every candidate to be evaluated according to the requirements of the specific job.
 
-**Weighted scoring.** Each candidate gets three component scores - Experience, Skills, Education - combined using whatever weights the job config has set (40/40/20 by default, adjustable per job). Missing a Must-have skill disqualifies the candidate outright regardless of overall score. Every match or miss is logged individually with the score effect it had, so the final number is never a black box.
+---
 
-**Radar chart.** The server renders a small SVG radar chart per candidate (returned as a base64 data URI, no client-side charting library needed) comparing the candidate's Experience/Skills/Education/Field profile against the benchmark.
+### Semantic Skill Matching
 
-**Self-tuning weights.** When an HR reviewer rates a candidate from 1-10, the system nudges the weight of every skill that candidate had, using a simple online update with a decaying learning rate (so weights stabilize as more ratings come in for that skill). Must-have skills are floored at a weight of 80 so they can't be tuned away entirely. Every change is pushed onto a version history array first, so a job config can be rolled back one step if a tuning pass makes things worse.
+OnBoard uses embeddings instead of relying only on exact string matching.
 
-**Multi-reviewer ratings.** More than one HR user can rate the same candidate; the stored `hr_rating` is the average across all of them, so one reviewer's opinion can't dominate.
+Both job requirements and candidate skills are converted into embeddings using Gemini.
 
-**Duplicate detection.** New uploads are checked against existing candidates (per job owner) by email or case-insensitive name match, and flagged rather than silently rejected.
+Cosine similarity is then used to determine how closely two skills are related.
 
-**Keyword-stuffing detection.** Gemini flags resumes that are mostly a long unstructured list of skills with no supporting context, which shows up as an authenticity flag on the candidate.
+For example:
 
-**Bring-your-own API key.** Each user supplies their own Gemini API key on first login rather than the app using a single shared key. It's encrypted with AES-256-CTR before being stored and only decrypted server-side when a request needs it.
+```text
+Job Requirement:
+Kubernetes
 
-**Pipeline tracking.** Candidates move through New, Screening, Interview, Offer, and Rejected stages directly from the dashboard.
+Candidate Resume:
+K8s
+Container Orchestration
+````
 
-**Leaderboard and reset.** A "Top Performers" panel shows the 10 highest-scoring candidates. A one-click reset wipes all candidates and job configs for the current user to start a role from scratch.
+The system can identify these as semantically related skills instead of treating them as completely different strings.
 
-## Tech stack
+---
 
-**Client:** React 18 (Vite), React Router, Tailwind CSS, Axios, lucide-react
+### Weighted Candidate Scoring
 
-**Server:** Node.js, Express 5, MongoDB with Mongoose, JWT auth (`jsonwebtoken` + `bcryptjs`), Multer (in-memory storage, no files ever touch disk), `pdf-parse`
+Each candidate receives three major component scores:
 
-**AI:** `@google/generative-ai` - Gemini 2.5 Flash for resume parsing/extraction, `text-embedding-004` for skill embeddings
-
-There is no separate Python or Flask service. All scoring logic (cosine similarity, weighted aggregation, the online weight-tuning update, and SVG generation for the radar chart) lives in `server/services/mlService.js` and runs in-process alongside the API.
-
-## Project structure
-
+```text
+Experience
+Skills
+Education
 ```
-RecruitAI/
-├── client/                    React frontend (Vite)
+
+The default weighting is:
+
+```text
+Experience → 40%
+Skills     → 40%
+Education  → 20%
+```
+
+These weights can be customized for each job.
+
+Candidates missing a required Must-have skill can be automatically disqualified regardless of their overall score.
+
+---
+
+### Explainable Candidate Matching
+
+OnBoard provides an explanation for the generated candidate score.
+
+The system records individual skill matches and misses along with their contribution to the final score.
+
+Candidate details can include:
+
+* Overall score
+* Experience score
+* Skills score
+* Education score
+* Matched skills
+* Missing skills
+* Supporting resume evidence
+
+This makes the candidate ranking easier to understand instead of presenting only a single score.
+
+---
+
+### Gold-Standard Resume Benchmarking
+
+Recruiters can upload resumes of candidates who previously succeeded in a particular role.
+
+OnBoard analyzes these resumes and generates a benchmark based on:
+
+* Average years of experience
+* Most common degree
+* Most common field of study
+* Frequently occurring skills
+
+Skills appearing across a sufficient percentage of benchmark resumes can automatically be added to the job configuration.
+
+Skill importance can also be derived from how frequently a skill appears among the benchmark candidates.
+
+---
+
+### Radar Chart
+
+Candidate profiles can be visualized using a radar chart comparing:
+
+* Experience
+* Skills
+* Education
+* Field
+
+The chart is generated by the backend and returned to the frontend.
+
+---
+
+### Adaptive Skill Weight Tuning
+
+HR feedback can be used to adjust skill weights over time.
+
+When a recruiter rates a candidate from 1–10, the system updates the weights of relevant skills using an online learning-style update.
+
+The learning rate decreases over time so that the weights become more stable as more feedback is collected.
+
+Must-have skills maintain a minimum weight so that they cannot be completely removed through tuning.
+
+---
+
+### Configuration Version History
+
+Changes to job skill weights are stored in version history.
+
+If a tuning update produces an undesirable configuration, the previous configuration can be restored using rollback functionality.
+
+---
+
+### Multi-Reviewer Ratings
+
+Multiple HR reviewers can rate the same candidate.
+
+The final HR rating is calculated from the ratings submitted by the reviewers rather than relying on a single reviewer's evaluation.
+
+Example:
+
+```text
+Reviewer 1 → 8/10
+Reviewer 2 → 9/10
+Reviewer 3 → 7/10
+
+Average → 8/10
+```
+
+---
+
+### Duplicate Detection
+
+When a new resume is uploaded, OnBoard checks existing candidates for possible duplicates.
+
+Duplicate detection is performed using:
+
+* Email
+* Case-insensitive candidate name
+
+Potential duplicates are flagged rather than silently creating duplicate candidate records.
+
+---
+
+### Keyword-Stuffing Detection
+
+OnBoard can identify resumes that contain large unstructured lists of skills without sufficient supporting context.
+
+Such resumes are flagged for recruiter review.
+
+---
+
+### Secure Gemini API Key Storage
+
+Users can provide their own Gemini API key.
+
+The API key is encrypted using AES-256 before being stored.
+
+The key is decrypted only on the backend when it is required for an AI request.
+
+---
+
+### Recruitment Pipeline
+
+Candidates can be moved through different recruitment stages:
+
+```text
+New
+ ↓
+Screening
+ ↓
+Interview
+ ↓
+Offer
+```
+
+Candidates can also be moved to:
+
+```text
+Rejected
+```
+
+Recruiters can update the candidate's pipeline stage directly from the dashboard.
+
+---
+
+### Candidate Leaderboard
+
+The dashboard provides a Top Performers section showing the highest-scoring candidates.
+
+This allows recruiters to quickly identify candidates with the strongest match scores.
+
+---
+
+### Reset Functionality
+
+Users can reset their current recruitment workspace.
+
+The reset operation removes the candidates and job configurations associated with the current user.
+
+---
+
+# System Architecture
+
+```text
+                         ┌──────────────────────┐
+                         │      OnBoard UI      │
+                         │   React + Vite       │
+                         └──────────┬───────────┘
+                                    │
+                                    │ REST API
+                                    ▼
+                         ┌──────────────────────┐
+                         │   Node.js + Express  │
+                         │       Backend        │
+                         └──────────┬───────────┘
+                                    │
+              ┌─────────────────────┼─────────────────────┐
+              │                     │                     │
+              ▼                     ▼                     ▼
+       ┌─────────────┐      ┌──────────────┐      ┌──────────────┐
+       │   MongoDB   │      │    Gemini    │      │  PDF Parser  │
+       │  + Mongoose │      │     API      │      │  pdf-parse   │
+       └─────────────┘      └──────┬───────┘      └──────────────┘
+                                   │
+                                   ▼
+                           ┌──────────────┐
+                           │  Embeddings  │
+                           └──────┬───────┘
+                                  │
+                                  ▼
+                           ┌──────────────┐
+                           │   Scoring    │
+                           │    Engine    │
+                           └──────┬───────┘
+                                  │
+                                  ▼
+                           Candidate Ranking
+```
+
+---
+
+# Resume Processing Pipeline
+
+```text
+Resume PDF
+    │
+    ▼
+PDF Text Extraction
+    │
+    ├─────────────── Text Available ──────────────┐
+    │                                              │
+    │                                              ▼
+    │                                      Structured Parsing
+    │
+    └─────────────── Poor Extraction ─────────────┐
+                                                   │
+                                                   ▼
+                                             Gemini Parsing
+                                                   │
+                                                   ▼
+                                          Structured Resume Data
+                                                   │
+                                                   ▼
+                                             Skill Extraction
+                                                   │
+                                                   ▼
+                                             Embeddings
+                                                   │
+                                                   ▼
+                                        Semantic Skill Matching
+                                                   │
+                                                   ▼
+                                           Candidate Scoring
+                                                   │
+                                                   ▼
+                                             Explanation
+                                                   │
+                                                   ▼
+                                           Candidate Ranking
+```
+
+---
+
+# Candidate Scoring Pipeline
+
+```text
+                    Candidate Resume
+                           │
+              ┌────────────┼────────────┐
+              │            │            │
+              ▼            ▼            ▼
+         Experience      Skills     Education
+              │            │            │
+              │            ▼            │
+              │      Semantic Match     │
+              │            │            │
+              └────────────┼────────────┘
+                           ▼
+                    Weighted Scoring
+                           │
+                           ▼
+                  Must-Have Validation
+                           │
+                           ▼
+                    Final Score
+                           │
+                           ▼
+                  Candidate Ranking
+```
+
+---
+
+# Tech Stack
+
+## Frontend
+
+* React 18
+* Vite
+* React Router
+* Tailwind CSS
+* Axios
+* Lucide React
+
+## Backend
+
+* Node.js
+* Express.js
+* MongoDB
+* Mongoose
+* JSON Web Tokens
+* bcryptjs
+* Multer
+* pdf-parse
+
+## AI
+
+* Google Gemini
+* Gemini 2.5 Flash
+* Gemini `text-embedding-004`
+* Semantic embeddings
+* Cosine similarity
+* Weighted scoring
+* Online skill-weight tuning
+
+---
+
+# Project Structure
+
+```text
+OnBoard/
+│
+├── client/
 │   ├── src/
-│   │   ├── components/        Navbar, CandidateCard, ResumeUploader, Leaderboard, etc.
-│   │   ├── context/            AuthContext (login state + BYOK modal trigger)
-│   │   ├── pages/               Dashboard, JobSetup, CandidateDetails, Login
-│   │   └── services/           Axios instance / API calls
-│   └── ...
-├── server/                    Express backend
-│   ├── config/                 MongoDB connection
-│   ├── controllers/            auth, candidate, jobConfig, user
-│   ├── middleware/              JWT auth guard
-│   ├── models/                  User, Candidate, JobConfig (Mongoose schemas)
+│   │   ├── components/
+│   │   │   ├── Navbar.jsx
+│   │   │   ├── CandidateCard.jsx
+│   │   │   ├── ResumeUploader.jsx
+│   │   │   └── Leaderboard.jsx
+│   │   │
+│   │   ├── context/
+│   │   │   └── AuthContext.jsx
+│   │   │
+│   │   ├── pages/
+│   │   │   ├── Login.jsx
+│   │   │   ├── Dashboard.jsx
+│   │   │   ├── JobSetup.jsx
+│   │   │   └── CandidateDetails.jsx
+│   │   │
+│   │   └── services/
+│   │       └── api.js
+│   │
+│   └── package.json
+│
+├── server/
+│   ├── config/
+│   │   └── db.js
+│   │
+│   ├── controllers/
+│   │   ├── authController.js
+│   │   ├── candidateController.js
+│   │   ├── jobConfigController.js
+│   │   └── userController.js
+│   │
+│   ├── middleware/
+│   │   └── authMiddleware.js
+│   │
+│   ├── models/
+│   │   ├── User.js
+│   │   ├── Candidate.js
+│   │   └── JobConfig.js
+│   │
 │   ├── routes/
+│   │   ├── authRoutes.js
+│   │   ├── candidateRoutes.js
+│   │   ├── jobConfigRoutes.js
+│   │   └── userRoutes.js
+│   │
 │   ├── services/
-│   │   ├── geminiService.js    Resume parsing + embeddings via Gemini
-│   │   └── mlService.js        Scoring, explainability, radar chart, weight tuning
-│   └── utils/                   PDF text extraction, AES-256 encryption for stored API keys
-├── demo_resume/                Sample PDFs for testing uploads and benchmarking
-└── screenshots/
+│   │   ├── geminiService.js
+│   │   └── mlService.js
+│   │
+│   ├── utils/
+│   │   ├── pdfParser.js
+│   │   └── encryption.js
+│   │
+│   ├── server.js
+│   └── package.json
+│
+├── demo_resume/
+│
+├── screenshots/
+│
+└── README.md
 ```
 
-## Getting started
+---
 
-You'll need Node.js 18+, a MongoDB instance (local or Atlas), and a Google Gemini API key (free to generate at [Google AI Studio](https://aistudio.google.com/)).
+# API Documentation
 
-### Backend
+All API routes except registration and login require JWT authentication.
+
+```http
+Authorization: Bearer <token>
+```
+
+## Authentication
+
+| Method | Endpoint             | Description      |
+| ------ | -------------------- | ---------------- |
+| POST   | `/api/auth/register` | Create account   |
+| POST   | `/api/auth/login`    | Login            |
+| GET    | `/api/auth/me`       | Get current user |
+
+## User
+
+| Method | Endpoint                   | Description                   |
+| ------ | -------------------------- | ----------------------------- |
+| POST   | `/api/user/setup-key`      | Save encrypted Gemini API key |
+| GET    | `/api/user/top-candidates` | Get top candidates            |
+| DELETE | `/api/user/reset-job`      | Reset user's recruitment data |
+
+## Job Configuration
+
+| Method | Endpoint                           | Description                 |
+| ------ | ---------------------------------- | --------------------------- |
+| POST   | `/api/job-config/`                 | Create job configuration    |
+| GET    | `/api/job-config/active`           | Get active configuration    |
+| PUT    | `/api/job-config/active`           | Update active configuration |
+| POST   | `/api/job-config/rollback`         | Roll back configuration     |
+| POST   | `/api/job-config/parse-benchmarks` | Parse benchmark resumes     |
+
+## Candidates
+
+| Method | Endpoint                      | Description             |
+| ------ | ----------------------------- | ----------------------- |
+| POST   | `/api/candidates/upload`      | Upload and parse resume |
+| GET    | `/api/candidates/`            | Get candidates          |
+| GET    | `/api/candidates/:id`         | Get candidate           |
+| POST   | `/api/candidates/:id/predict` | Score candidate         |
+| POST   | `/api/candidates/:id/rate`    | Submit HR rating        |
+| PATCH  | `/api/candidates/:id/status`  | Update pipeline stage   |
+| DELETE | `/api/candidates/:id`         | Delete candidate        |
+
+---
+
+# Installation
+
+## Prerequisites
+
+Make sure you have:
+
+* Node.js 18+
+* MongoDB or MongoDB Atlas
+* Google Gemini API key
+
+---
+
+## Clone Repository
+
+```bash
+git clone <YOUR_GITHUB_REPOSITORY_URL>
+cd OnBoard
+```
+
+---
+
+# Backend Setup
 
 ```bash
 cd server
 npm install
 ```
 
-Create a `.env` file in `server/`:
+Create a `.env` file:
 
 ```env
 PORT=5000
 MONGO_URI=your_mongodb_connection_string
-JWT_SECRET=any_long_random_string
-ENCRYPTION_KEY=must_be_exactly_32_characters
+JWT_SECRET=your_long_random_secret
+ENCRYPTION_KEY=your_32_character_encryption_key
 GEMINI_API_KEY=your_gemini_api_key
 ```
 
-`ENCRYPTION_KEY` has to be exactly 32 characters - it's used directly as an AES-256 key and the server will refuse to start otherwise. `GEMINI_API_KEY` here acts as a fallback; each user can also save their own key from the app after logging in, which is what actually gets used per-request.
+The `ENCRYPTION_KEY` must contain exactly 32 characters because it is used as the AES-256 encryption key.
+
+Start the backend:
 
 ```bash
 npm start
 ```
 
-### Frontend
+---
+
+# Frontend Setup
+
+Open another terminal:
 
 ```bash
 cd client
@@ -122,50 +578,136 @@ npm install
 npm run dev
 ```
 
-The client expects the API to be reachable per the base URL configured in `client/src/services/api.js`.
+Configure the frontend API base URL in:
 
-## How a job actually gets set up
+```text
+client/src/services/api.js
+```
 
-1. Create a job config (`New Job Config` in the nav bar) - either fill in experience/degree/field and add skills manually, or upload a handful of resumes from people who've already done well in the role and let the app derive the benchmark and skill weights for you.
-2. Upload candidate resumes. Each one gets parsed, checked for duplicates, and embedded.
-3. Run a prediction on a candidate to get its score, disqualification status, and explainability breakdown against the currently active job config.
-4. Rate candidates as you review them. Ratings feed back into the skill weights automatically, so the config gets a little more accurate the more you use it - with a version history you can roll back if a change doesn't help.
+---
 
-## API overview
+# How OnBoard Works
 
-All routes except `/api/auth/register` and `/api/auth/login` require a `Authorization: Bearer <token>` header.
+### 1. Create a Job
 
-| Method | Route | Purpose |
-|---|---|---|
-| POST | `/api/auth/register` | Create an account |
-| POST | `/api/auth/login` | Log in, get a JWT |
-| GET | `/api/auth/me` | Get the current user |
-| POST | `/api/user/setup-key` | Save an encrypted Gemini API key |
-| GET | `/api/user/top-candidates` | Leaderboard, top 10 by score |
-| DELETE | `/api/user/reset-job` | Wipe all candidates and configs for the user |
-| POST | `/api/job-config/` | Create a job config (optionally with benchmark resumes) |
-| GET | `/api/job-config/active` | Get the current active config |
-| PUT | `/api/job-config/active` | Update weights/skills on the active config |
-| POST | `/api/job-config/rollback` | Revert to the previous config version |
-| POST | `/api/job-config/parse-benchmarks` | Parse benchmark resumes without saving a config |
-| POST | `/api/candidates/upload` | Upload and parse a resume |
-| GET | `/api/candidates/` | List all candidates for the user |
-| GET | `/api/candidates/:id` | Get one candidate |
-| POST | `/api/candidates/:id/predict` | Score a candidate against the active config |
-| POST | `/api/candidates/:id/rate` | Submit an HR rating (1-10) |
-| PATCH | `/api/candidates/:id/status` | Update pipeline stage |
-| DELETE | `/api/candidates/:id` | Delete a candidate |
+The recruiter creates a job configuration by providing:
 
-## Notes
+* Minimum experience
+* Degree
+* Field
+* Required skills
+* Skill importance
 
-- Uploaded resumes are kept in memory only during the parse (Multer memory storage) - nothing is written to disk on the server.
-- The `demo_resume` folder has seven sample PDFs, useful for trying out the benchmark upload flow without needing real resumes on hand.
-- There's no license file in this repository yet, so treat the code as all-rights-reserved until one is added.
+Alternatively, benchmark resumes can be uploaded to automatically derive the job requirements.
 
-## Author
+### 2. Upload Candidate Resumes
 
-Built by Arya Dasgupta.
+Candidate resumes are uploaded as PDF files.
 
-- GitHub: [AryaXDG](https://github.com/AryaXDG)
-- LinkedIn: [aryadasgupta2004](https://www.linkedin.com/in/aryadasgupta2004/)
-- Email: aryadasgupta2004@gmail.com
+The system extracts and structures the candidate's information using PDF parsing and Gemini.
+
+### 3. Generate Candidate Embeddings
+
+Candidate skills are converted into semantic embeddings.
+
+### 4. Match Against Job Requirements
+
+Job skills are also embedded and compared against candidate skills using cosine similarity.
+
+### 5. Calculate Candidate Score
+
+Experience, skills, and education are combined according to the configured weights.
+
+### 6. Generate Explanation
+
+The system identifies matched and missing skills and provides supporting resume evidence.
+
+### 7. Review Candidates
+
+Recruiters can:
+
+* View candidate scores
+* Review evidence
+* Rate candidates
+* Change pipeline stages
+* Compare candidates
+* View the leaderboard
+
+### 8. Tune the Job Configuration
+
+HR ratings can be used to adjust skill weights over time.
+
+Previous configurations can be restored using rollback.
+
+---
+
+# Security
+
+OnBoard implements:
+
+* JWT authentication
+* bcrypt password hashing
+* Protected API routes
+* Authentication middleware
+* Backend validation
+* AES-256 encryption for Gemini API keys
+* Duplicate candidate detection
+
+Resume files are processed using Multer's in-memory storage and are not permanently written to the server filesystem.
+
+---
+
+# Environment Variables
+
+| Variable         | Description               |
+| ---------------- | ------------------------- |
+| `PORT`           | Backend server port       |
+| `MONGO_URI`      | MongoDB connection string |
+| `JWT_SECRET`     | JWT signing secret        |
+| `ENCRYPTION_KEY` | 32-character AES-256 key  |
+| `GEMINI_API_KEY` | Gemini API key            |
+
+---
+
+# Example Candidate Evaluation
+
+```text
+Candidate: John Doe
+
+Overall Match: 86%
+
+Experience     90%
+Skills         84%
+Education      85%
+
+Matched Skills
+✓ React
+✓ Node.js
+✓ MongoDB
+✓ REST APIs
+
+Missing Skills
+✗ Kubernetes
+
+Pipeline Stage
+Screening
+```
+
+---
+
+# Future Improvements
+
+* Support additional resume formats
+* Improve job-description extraction
+* Add more advanced recruiter analytics
+* Improve candidate comparison
+* Expand semantic matching capabilities
+* Add additional AI-based recruitment features
+
+---
+
+# License
+
+This project is developed for educational and portfolio purposes.
+
+```
